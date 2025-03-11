@@ -55,9 +55,7 @@ public:
     }
 };
 
-// Classe représentant un curseur
-#include <SFML/Graphics.hpp>
-#include <iostream>
+
 
 class Slider {
 public:
@@ -139,7 +137,14 @@ public:
     sf::Sprite sprite;
     float speed = 5.0f;
 
-    Tank(float x, float y, const std::string& textureFile) {
+    int vie = 200; // La vie du tank commence à 100
+    std::string nom;  // Nom du tank
+
+
+    
+
+    Tank(float x, float y, const std::string& textureFile, const std::string& nomTank)
+        : nom(nomTank) { 
         if (!texture.loadFromFile(textureFile)) {
             std::cerr << "Erreur : Impossible de charger l'image " << textureFile << std::endl;
         }
@@ -163,10 +168,54 @@ public:
         }
     }
 
+    
+
     sf::Vector2f getCenter() {
         return sprite.getPosition();
     }
+
+    void barre_de_vie(sf::RenderWindow& window, int positionY, sf::Font& font) {
+        sf::RectangleShape fond(sf::Vector2f(200, 20));  // Fond noir de la barre de vie
+        fond.setFillColor(sf::Color::Black);
+        fond.setPosition(window.getSize().x - 300, positionY);
+
+        sf::RectangleShape barre(sf::Vector2f(vie, 20));  // Barre de vie
+        
+        // Changer la couleur en fonction des points de vie
+        if (vie > 60)
+            barre.setFillColor(sf::Color::Green);
+        else if (vie > 30)
+            barre.setFillColor(sf::Color::Yellow);
+        else
+            barre.setFillColor(sf::Color::Red);
+
+        barre.setPosition(window.getSize().x - 300, positionY);
+
+        sf::Text texteNom;
+        texteNom.setFont(font);
+        texteNom.setCharacterSize(18);
+        texteNom.setFillColor(sf::Color::White);
+        texteNom.setString(nom);
+        
+
+        //texteNom.setPosition(window.getSize().x - 130, positionY - 25);  // Position au-dessus de la barre
+
+
+        texteNom.setPosition(window.getSize().x - 300, positionY-25);  // Position au-dessus de la barre
+
+        window.draw(fond);
+        window.draw(barre);
+        window.draw(texteNom);
+    }
+
 };
+
+
+
+
+bool checkCollision(const Ball& ball, const Tank& tank) {
+    return ball.shape.getGlobalBounds().intersects(tank.sprite.getGlobalBounds());
+}
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(1600, 1200), "Tank Battle");
@@ -187,10 +236,19 @@ int main() {
     std::unique_ptr<Ball> ball1 = nullptr; // Balle du premier tank
     std::unique_ptr<Ball> ball2 = nullptr; // Balle du deuxième tank
 
-    Tank tank1(200, 400, "tank.png"); // Premier tank
-    Tank tank2(600, 400, "tank_2.png"); // Deuxième tank
+    Tank tank1(200, 400, "tank.png","tank 1"); // Premier tank
+    Tank tank2(600, 400, "tank_2.png","tank 2"); // Deuxième tank
 
     bool isTank1Control = true; // Le contrôle du tank 1 est actif par défaut
+    bool boom = false;
+    float boomTime = 0.0f;  // Nouveau compteur de temps
+
+    sf::Text boomText;
+    boomText.setFont(font);
+    boomText.setCharacterSize(50);
+    boomText.setFillColor(sf::Color::Red);
+    boomText.setString("BOOM");
+    boomText.setPosition(800, 100);
 
     while (window.isOpen()) {
         sf::Event event;
@@ -230,9 +288,28 @@ int main() {
         // Mettre à jour les balles
         if (ball1) {
             ball1->update(TIME_STEP);
+            if (checkCollision(*ball1, tank2)) {
+                boom = true;
+                boomTime = 0.0f;  // Reset le temps à chaque collision
+                tank2.vie -= 1;
+
+            }
         }
         if (ball2) {
             ball2->update(TIME_STEP);
+            if (checkCollision(*ball2, tank1)) {
+                boom = true;
+                boomTime = 0.0f;  // Reset le temps à chaque collision
+                tank1.vie -= 1;
+
+            }
+        }
+
+        if (boom) {
+            boomTime += TIME_STEP;  // Incrémente le temps écoulé
+            if (boomTime >= 3.0f) {  // Si 3 secondes se sont écoulées
+                boom = false;  // Cache le texte "BOOM"
+            }
         }
 
         window.clear(sf::Color::White);
@@ -244,11 +321,19 @@ int main() {
         // Dessiner les tanks et les balles
         window.draw(tank1.sprite);
         window.draw(tank2.sprite);
+
+        tank1.barre_de_vie(window, 100,font);  // Barre de vie du Tank 1
+        tank2.barre_de_vie(window, 160,font);  // Barre de vie du Tank 2 (placée un peu plus bas)
+
+      
         if (ball1) {
             window.draw(ball1->shape);
         }
         if (ball2) {
             window.draw(ball2->shape);
+        }
+        if (boom) {
+            window.draw(boomText);
         }
 
         window.display();
